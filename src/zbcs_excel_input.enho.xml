@@ -1,0 +1,1087 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_ENHO" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <TOOL>HOOK_IMPL</TOOL>
+   <SHORTTEXT>Read the BCS file from the Excel</SHORTTEXT>
+   <ORIGINAL_OBJECT>
+    <PGMID>R3TR</PGMID>
+    <ORG_OBJ_TYPE>FUGR</ORG_OBJ_TYPE>
+    <ORG_OBJ_NAME>SCPRPR</ORG_OBJ_NAME>
+    <ORG_MAIN_TYPE>FUGR</ORG_MAIN_TYPE>
+    <ORG_MAIN_NAME>SCPRPR</ORG_MAIN_NAME>
+    <PROGRAMNAME>SAPLSCPRPR</PROGRAMNAME>
+   </ORIGINAL_OBJECT>
+   <ENHANCEMENTS>
+    <ENH_HOOK_IMPL>
+     <PROGRAMNAME>SAPLSCPRPR</PROGRAMNAME>
+     <ENHMODE>D</ENHMODE>
+     <FULL_NAME>\FU:SCPR_MN_BCSET_UPLOAD\SE:BEGIN\EI</FULL_NAME>
+     <SOURCE>
+      <item>* IF sy-uname  = &apos;MEAPEN001&apos;.&quot; AND 1 = 2.</item>
+      <item> DATA: lv_file_path     TYPE string,</item>
+      <item>       lt_transfer_tab  TYPE scpr_transfertab,</item>
+      <item>       lv_subrc         TYPE syst_subrc.</item>
+      <item/>
+      <item> PERFORM upload_file(zconfig_management_tool) IF FOUND</item>
+      <item>                                              CHANGING lt_transfer_tab</item>
+      <item>                                                       filename</item>
+      <item>                                                       lv_file_path</item>
+      <item>                                                       lv_subrc.</item>
+      <item>  IF NOT lv_file_path CS &apos;xls&apos; and filename IS NOT INITIAL.</item>
+      <item>*  Do nothing</item>
+      <item>  ELSEIF lv_subrc IS NOT INITIAL.</item>
+      <item>    CASE lv_subrc.</item>
+      <item>      case sy-subrc.</item>
+      <item>        when 1.</item>
+      <item>          raise file_open_error.</item>
+      <item>        when 2.</item>
+      <item>          raise file_read_error.</item>
+      <item>        when 3.</item>
+      <item>          raise invalid_type.</item>
+      <item>        when 4.</item>
+      <item>          raise no_batch.</item>
+      <item>        when 5.</item>
+      <item>          raise no_bcset_in_file.</item>
+      <item>        WHEN 6.</item>
+      <item>          raise user_abort.</item>
+      <item>        when others.</item>
+      <item>          raise unknown_error.</item>
+      <item>      endcase.</item>
+      <item>    ENDCASE.</item>
+      <item>    RETURN.</item>
+      <item>  ELSE.</item>
+      <item/>
+      <item>  IF lt_transfer_tab IS NOT INITIAL.</item>
+      <item>    PERFORM read_transfer_tab_and_save</item>
+      <item>            TABLES   lt_transfer_tab</item>
+      <item>                     IT_LIST_OF_BCSETS</item>
+      <item>            CHANGING profid proftext category filename.</item>
+      <item>    IF NOT profid IS INITIAL.</item>
+      <item>      CALL FUNCTION &apos;SCPR_SV_DEQUEUE_BCSET&apos;</item>
+      <item>        EXPORTING</item>
+      <item>          bcset_id = profid.</item>
+      <item>    ENDIF.</item>
+      <item>  ENDIF.</item>
+      <item>  RETURN.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>if 1 = 2.</item>
+      <item>  data: path_and_filename1 type string,</item>
+      <item>        file_version1(2).</item>
+      <item/>
+      <item>  data: transfer_tab1 type scpr_transfer occurs 0 with header line.</item>
+      <item>* Changes for unicode upload</item>
+      <item>* Pfad- und Dateinamen vom Benutzer erfragen</item>
+      <item>  call function &apos;SCPR_IF_DOWNLOAD_FILENAME_GET&apos;</item>
+      <item>     exporting</item>
+      <item>       profid            = profid</item>
+      <item>       category          = category</item>
+      <item>       up_or_down        = &apos;UP&apos;          &quot;UPLOAD !!!</item>
+      <item>     changing</item>
+      <item>       path_and_filename = path_and_filename1</item>
+      <item>       filename_only     = filename</item>
+      <item>     exceptions</item>
+      <item>       user_abort        = 1.</item>
+      <item>  if sy-subrc &lt;&gt; 0 or path_and_filename1 is initial.</item>
+      <item>    message s018 raising user_abort.</item>
+      <item>  else.</item>
+      <item>    IF path_and_filename1 CS &apos;xls&apos;.</item>
+      <item>**********************************************************************</item>
+      <item>  TYPES : BEGIN OF ty_excelfile ,</item>
+      <item>            line(262142) TYPE c ,</item>
+      <item>          END OF ty_excelfile .</item>
+      <item/>
+      <item>  DATA :</item>
+      <item>      gv_activesheet      TYPE ole2_object,</item>
+      <item>      gv_application      TYPE ole2_object,</item>
+      <item>      gv_workbook         TYPE ole2_object,</item>
+      <item>      gv_sheet            TYPE ole2_object,</item>
+      <item>      gv_start_cell       TYPE ole2_object,</item>
+      <item>      gv_end_cell         TYPE ole2_object,</item>
+      <item>      gv_end              TYPE ole2_object,</item>
+      <item>      gv_range            TYPE ole2_object,</item>
+      <item>      wa_excel            TYPE ty_excelfile,</item>
+      <item>      l_sheetsnum         TYPE int4,</item>
+      <item>      deli                TYPE c,</item>
+      <item>      l_rownum            TYPE scpr_recnr,</item>
+      <item>      gt_excel_string TYPE STANDARD TABLE OF ty_excelfile.</item>
+      <item/>
+      <item>    TYPES : BEGIN OF ty_input,</item>
+      <item>             text1 TYPE string,</item>
+      <item>             text2 TYPE string,</item>
+      <item>             text3 TYPE string,</item>
+      <item>             text4 TYPE string,</item>
+      <item>             text5 TYPE string,</item>
+      <item>             text6 TYPE string,</item>
+      <item>             text7 TYPE string,</item>
+      <item>             text8 TYPE string,</item>
+      <item>             text9 TYPE string,</item>
+      <item>             text10 TYPE string,</item>
+      <item>           END OF ty_input.</item>
+      <item/>
+      <item>    DATA : wa_input TYPE ty_input.</item>
+      <item/>
+      <item>*** PIDSHEL</item>
+      <item>*** ID</item>
+      <item>TYPES : BEGIN OF ty_id,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_id.</item>
+      <item/>
+      <item/>
+      <item>*** Table Name</item>
+      <item>TYPES : BEGIN OF ty_table_name,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_table_name.</item>
+      <item/>
+      <item>*** Record Number</item>
+      <item>TYPES : BEGIN OF ty_record_no,</item>
+      <item>         id TYPE string,</item>
+      <item>         rec TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_record_no.</item>
+      <item/>
+      <item>*** Field</item>
+      <item>TYPES : BEGIN OF ty_field,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_field.</item>
+      <item/>
+      <item>*** Laungauge</item>
+      <item>TYPES : BEGIN OF ty_lang,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>*         rec TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_lang.</item>
+      <item/>
+      <item>*** Flag</item>
+      <item>TYPES : BEGIN OF ty_flag,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_flag.</item>
+      <item/>
+      <item>*** Value</item>
+      <item>TYPES : BEGIN OF ty_value,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_value.</item>
+      <item/>
+      <item>*** Description</item>
+      <item>TYPES : BEGIN OF ty_desc,</item>
+      <item>         id TYPE string,</item>
+      <item>         seq TYPE string,</item>
+      <item>         text TYPE string,</item>
+      <item>        END OF ty_desc.</item>
+      <item/>
+      <item>*** Final Internal Table</item>
+      <item>TYPES : BEGIN OF ty_final,</item>
+      <item>        id TYPE string,</item>
+      <item>        record_no TYPE string,</item>
+      <item>        table_name TYPE string,</item>
+      <item>        field TYPE string,</item>
+      <item>        lang TYPE string,</item>
+      <item>        flag TYPE string,</item>
+      <item>        value TYPE string,</item>
+      <item>        desc TYPE string,</item>
+      <item>        END OF ty_final.</item>
+      <item/>
+      <item>DATA : it_id TYPE STANDARD TABLE OF ty_id,</item>
+      <item>       wa_id TYPE ty_id,</item>
+      <item>       it_table_name TYPE STANDARD TABLE OF ty_table_name,</item>
+      <item>       wa_table_name TYPE ty_table_name,</item>
+      <item>       it_record_no TYPE STANDARD TABLE OF ty_record_no,</item>
+      <item>       wa_record_no TYPE ty_record_no,</item>
+      <item>       it_record_temp TYPE STANDARD TABLE OF ty_record_no,</item>
+      <item>       wa_record_temp TYPE ty_record_no,</item>
+      <item>       it_record_temp1 TYPE STANDARD TABLE OF ty_record_no,</item>
+      <item>       wa_record_temp1 TYPE ty_record_no,</item>
+      <item>       it_lang TYPE STANDARD TABLE OF ty_lang,</item>
+      <item>       wa_lang TYPE ty_lang,</item>
+      <item>       it_flag TYPE STANDARD TABLE OF ty_flag,</item>
+      <item>       wa_flag TYPE ty_flag,</item>
+      <item>       it_field TYPE STANDARD TABLE OF ty_field,</item>
+      <item>       wa_field TYPE ty_field,</item>
+      <item>       it_value TYPE STANDARD TABLE OF ty_value,</item>
+      <item>       wa_value TYPE ty_value,</item>
+      <item>       it_desc TYPE STANDARD TABLE OF ty_desc,</item>
+      <item>       wa_desc TYPE ty_desc,</item>
+      <item>       it_final TYPE STANDARD TABLE OF ty_final,</item>
+      <item>       wa_final TYPE ty_final,</item>
+      <item>       it_final_temp TYPE STANDARD TABLE OF ty_final,</item>
+      <item>       wa_final_temp TYPE ty_final,</item>
+      <item>       it_final_temp1 TYPE STANDARD TABLE OF ty_final,</item>
+      <item>       wa_final_temp1 TYPE ty_final.</item>
+      <item/>
+      <item>DATA : lv_tabix TYPE sy-tabix.</item>
+      <item/>
+      <item/>
+      <item>DATA : lv_text1 TYPE string,</item>
+      <item>       lv_text2 TYPE string,</item>
+      <item>       lv_text3 TYPE string,</item>
+      <item>       lv_text4 TYPE string,</item>
+      <item>       lv_text5 TYPE string,</item>
+      <item>       lv_text6 TYPE string,</item>
+      <item>       lv_text7 TYPE string.</item>
+      <item>*** PIDSHEL</item>
+      <item/>
+      <item>  deli = cl_abap_char_utilities=&gt;horizontal_tab.</item>
+      <item/>
+      <item>* Creating Object reference for Excel application</item>
+      <item>  CREATE OBJECT gv_application &apos;EXCEL.APPLICATION&apos;.</item>
+      <item>* Getting the property of workbooks</item>
+      <item>  GET PROPERTY OF gv_application &apos;WORKBOOKS&apos; = gv_workbook.</item>
+      <item/>
+      <item>* Opening the workbook</item>
+      <item>  CALL METHOD OF gv_workbook &apos;Open&apos;</item>
+      <item>    EXPORTING</item>
+      <item>      #1 = path_and_filename1. &quot; File location entered</item>
+      <item>  IF sy-subrc &lt;&gt; 0.</item>
+      <item>    MESSAGE &apos;Excel File cannot be opened&apos; TYPE &apos;E&apos;.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>  IF l_sheetsnum IS INITIAL .</item>
+      <item>    l_sheetsnum = &apos;1&apos;.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>*  Get the sheet count from the first line fo the excel.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_application &apos;Worksheets&apos; = gv_activesheet</item>
+      <item>        EXPORTING #1 = 1.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_activesheet &apos;ACTIVATE&apos;.</item>
+      <item/>
+      <item>*   Refering the active worksheet of the application</item>
+      <item>    GET PROPERTY OF gv_application &apos;ActiveSheet&apos; = gv_activesheet.</item>
+      <item/>
+      <item>*   First cell is made as the starting cell</item>
+      <item>    CALL METHOD OF gv_application &apos;Cells&apos; = gv_start_cell</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = 1</item>
+      <item>      #2 = 1.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_application &apos;Cells&apos; = gv_end</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = 1</item>
+      <item>      #2 = 2.</item>
+      <item/>
+      <item>*   Creating range with starting cell and ending cell</item>
+      <item>    CALL METHOD OF gv_application &apos;Range&apos; = gv_range</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = gv_start_cell</item>
+      <item>      #2 = gv_end.</item>
+      <item/>
+      <item>*   Selecting the Range</item>
+      <item>    CALL METHOD OF gv_range &apos;Select&apos;.</item>
+      <item>    CALL METHOD OF gv_range &apos;Copy&apos;.</item>
+      <item/>
+      <item>*   Read clipboard intoABAP</item>
+      <item>    CALL METHOD cl_gui_frontend_services=&gt;clipboard_import</item>
+      <item>      IMPORTING</item>
+      <item>        data = gt_excel_string</item>
+      <item>      EXCEPTIONS</item>
+      <item>        cntl_error = 1</item>
+      <item>        error_no_gui = 2</item>
+      <item>        not_supported_by_gui = 3</item>
+      <item>        OTHERS = 4.</item>
+      <item>    IF sy-subrc NE 0.</item>
+      <item>      CALL FUNCTION &apos;FLUSH&apos;</item>
+      <item>        EXCEPTIONS</item>
+      <item>          cntl_system_error = 1</item>
+      <item>          cntl_error        = 2</item>
+      <item>          OTHERS            = 3.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CALL METHOD OF gv_workbook &apos;CLOSE&apos;.</item>
+      <item>      CALL  METHOD OF gv_workbook &apos;QUIT&apos;.</item>
+      <item>      CALL METHOD OF gv_application &apos;QUIT&apos;.</item>
+      <item/>
+      <item>*     Freeing the used variables</item>
+      <item/>
+      <item>      FREE OBJECT gv_activesheet .</item>
+      <item>      FREE OBJECT gv_workbook .</item>
+      <item>      FREE OBJECT gv_application .</item>
+      <item>      gv_application-handle = -1.</item>
+      <item>      MESSAGE &apos;Error while uploading data&apos; TYPE &apos;E&apos;.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    LOOP AT gt_excel_string INTO wa_excel.</item>
+      <item>      SPLIT wa_excel AT deli INTO wa_input-text1</item>
+      <item>                                  wa_input-text2.</item>
+      <item>      IF wa_input-text1 = &apos;SHEETCOUNT&apos; AND</item>
+      <item>         wa_input-text2 IS NOT INITIAL.</item>
+      <item>        l_sheetsnum = wa_input-text2.</item>
+      <item>      ELSE.</item>
+      <item>        l_sheetsnum = 1.</item>
+      <item>      ENDIF.</item>
+      <item>    ENDLOOP.</item>
+      <item>**** PIDSHEL</item>
+      <item>DATA : l_horizontal TYPE C.</item>
+      <item>IF sy-uname &lt;&gt; &apos;LPIDSHETTI00&apos; AND l_horizontal IS INITIAL.</item>
+      <item>*   if sy-uname &lt;&gt; &apos;MEAPEN001&apos;.</item>
+      <item>*** PIDSHEL</item>
+      <item>  DO l_sheetsnum TIMES.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_application &apos;Worksheets&apos; = gv_activesheet</item>
+      <item>      EXPORTING #1 = sy-index.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_activesheet &apos;ACTIVATE&apos;.</item>
+      <item/>
+      <item>*   Refering the active worksheet of the application</item>
+      <item>    GET PROPERTY OF gv_application &apos;ActiveSheet&apos; = gv_activesheet.</item>
+      <item/>
+      <item>*   First cell is made as the starting cell</item>
+      <item>    CALL METHOD OF gv_application &apos;Cells&apos; = gv_start_cell</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = 1</item>
+      <item>      #2 = 1.</item>
+      <item/>
+      <item>    GET PROPERTY OF gv_application &apos;ActiveCell&apos; = gv_end_cell.</item>
+      <item/>
+      <item>*   Getting the last cell that is filled with data ( CTRL + END )</item>
+      <item>    CALL METHOD OF gv_end_cell &apos;SpecialCells&apos; = gv_end</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = &apos;11&apos;. &quot; Value for constant &apos;xlLastCell&apos;</item>
+      <item/>
+      <item>*   Value for constant xlLastCell is founc out using MS Excel object</item>
+      <item>*  … navigator in VBA editor -&gt; Step 12 of process mentioned above</item>
+      <item>*   Creating range with starting cell and ending cell</item>
+      <item>    CALL METHOD OF gv_application &apos;Range&apos; = gv_range</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = gv_start_cell</item>
+      <item>      #2 = gv_end.</item>
+      <item/>
+      <item>*   Selecting the Range</item>
+      <item>    CALL METHOD OF gv_range &apos;Select&apos;.</item>
+      <item/>
+      <item>*   Copying the range</item>
+      <item>    CALL METHOD OF gv_range &apos;Copy&apos;.</item>
+      <item/>
+      <item>*   Read clipboard intoABAP</item>
+      <item>    CALL METHOD cl_gui_frontend_services=&gt;clipboard_import</item>
+      <item>      IMPORTING</item>
+      <item>        data = gt_excel_string</item>
+      <item>      EXCEPTIONS</item>
+      <item>        cntl_error = 1</item>
+      <item>        error_no_gui = 2</item>
+      <item>        not_supported_by_gui = 3</item>
+      <item>        OTHERS = 4.</item>
+      <item>    IF sy-subrc NE 0.</item>
+      <item>      CALL FUNCTION &apos;FLUSH&apos;</item>
+      <item>        EXCEPTIONS</item>
+      <item>          cntl_system_error = 1</item>
+      <item>          cntl_error        = 2</item>
+      <item>          OTHERS            = 3.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CALL METHOD OF gv_workbook &apos;CLOSE&apos;.</item>
+      <item>      CALL  METHOD OF gv_workbook &apos;QUIT&apos;.</item>
+      <item>      CALL METHOD OF gv_application &apos;QUIT&apos;.</item>
+      <item/>
+      <item>*     Freeing the used variables</item>
+      <item/>
+      <item>      FREE OBJECT gv_activesheet .</item>
+      <item>      FREE OBJECT gv_workbook .</item>
+      <item>      FREE OBJECT gv_application .</item>
+      <item>      gv_application-handle = -1.</item>
+      <item>      MESSAGE &apos;Error while uploading data&apos; TYPE &apos;E&apos;.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    LOOP AT gt_excel_string INTO wa_excel.</item>
+      <item>      CLEAR wa_input.</item>
+      <item>      SPLIT wa_excel AT deli INTO wa_input-text1</item>
+      <item>                                  wa_input-text2</item>
+      <item>                                  wa_input-text3</item>
+      <item>                                  wa_input-text4</item>
+      <item>                                  wa_input-text5</item>
+      <item>                                  wa_input-text6</item>
+      <item>                                  wa_input-text7</item>
+      <item>                                  wa_input-text8</item>
+      <item>                                  wa_input-text9</item>
+      <item>                                  wa_input-text10.</item>
+      <item/>
+      <item>      CASE wa_input-text1.</item>
+      <item>        WHEN &apos;SHEETCOUNT&apos;.</item>
+      <item>          &quot;Do Nothing</item>
+      <item>        WHEN &apos;VERSION&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;VERSION&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;DATE&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;DATE&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          transfer_tab1-line+70  = wa_input-text3.</item>
+      <item>          append transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;BCSET&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;BCSET&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2. &quot; l_profid.</item>
+      <item>          transfer_tab1-line+85  = wa_input-text3 .&quot;l_proftype.</item>
+      <item>          transfer_tab1-line+90  = wa_input-text4.&quot; l_category.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;ORGID&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;ORGID&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2. &quot; l_profid.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;COMPONENT&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;COMPONENT&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;MINRELEASE&apos;.</item>
+      <item>           transfer_tab1-line     = &apos;MINRELEASE&apos;.</item>
+      <item>           transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>           APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;MAXRELEASE&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;MAXRELEASE&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;BCSET_TEXT&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;BCSET_TEXT&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;SCPRVALS&apos;.</item>
+      <item>          CLEAR l_rownum.</item>
+      <item>          WRITE wa_input-text3 RIGHT-JUSTIFIED TO l_rownum.</item>
+      <item>          transfer_tab1-line = &apos;SCPRVALS&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.  &quot;wa_upload1-tablename.</item>
+      <item>          transfer_tab1-line+100 = wa_input-text3.</item>
+      <item>*          transfer_tab1-line+100 = l_rownum.   &quot;wa_upload1-rownum.</item>
+      <item>          transfer_tab1-line+110 = wa_input-text4.  &quot;wa_upload1-field.</item>
+      <item>          transfer_tab1-line+170 = wa_input-text6.   &quot;wa_upload1-fieldtyp.</item>
+      <item>          transfer_tab1-line+180 = wa_input-text7.    &quot; wa_upload1-value.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;SCPRVALL&apos;.</item>
+      <item>          CLEAR l_rownum.</item>
+      <item>          WRITE wa_input-text3 RIGHT-JUSTIFIED TO l_rownum.</item>
+      <item>          transfer_tab1-line = &apos;SCPRVALL&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.  &quot;wa_upload1-tablename.</item>
+      <item>          transfer_tab1-line+100 = wa_input-text3.</item>
+      <item>*          transfer_tab1-line+100 = l_rownum.   &quot;wa_upload1-rownum.</item>
+      <item>          transfer_tab1-line+110 = wa_input-text4.  &quot;wa_upload1-field.</item>
+      <item>          transfer_tab1-line+160 = wa_input-text5.  &quot;wa_upload1-langu.</item>
+      <item>          transfer_tab1-line+170 = wa_input-text6.   &quot;wa_upload1-fieldtyp.</item>
+      <item>          transfer_tab1-line+180 = wa_input-text7.    &quot; wa_upload1-value.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;SCPRRECA&apos;.</item>
+      <item>          CLEAR l_rownum.</item>
+      <item>          WRITE wa_input-text3 RIGHT-JUSTIFIED TO l_rownum.</item>
+      <item>          transfer_tab1-line = &apos;SCPRRECA&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.  &quot;wa_upload1-tablename.</item>
+      <item>          transfer_tab1-line+100 = wa_input-text3.</item>
+      <item>*          transfer_tab1-line+100 = l_rownum.&quot;wa_input-text3. &quot;wa_upload1-rownum.</item>
+      <item>          transfer_tab1-line+110 = wa_input-text4. &quot;wa_upload1-field.</item>
+      <item>          transfer_tab1-line+160 = wa_input-text5. &quot;recattr-objecttype.</item>
+      <item>          transfer_tab1-line+170 = wa_input-text6. &quot;recattr-activity.</item>
+      <item>          transfer_tab1-line+220 = wa_input-text7. &quot;recattr-clustname.</item>
+      <item>          transfer_tab1-line+260 = wa_input-text8. &quot;recattr-uncomplete.</item>
+      <item>          transfer_tab1-line+270 = wa_input-text9. &quot;recattr-deleteflag.</item>
+      <item>          transfer_tab1-line+280 = wa_input-text10. &quot;recattr-genref.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;SCPRFLDV&apos;.</item>
+      <item>          transfer_tab1-line = &apos;SCPRFLDV&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.  &quot;varfldtxts-dataelem.</item>
+      <item>          transfer_tab1-line+100 = wa_input-text3.  &quot;varfldtxts-langu.</item>
+      <item>          transfer_tab1-line+110 = wa_input-text4.  &quot;varfldtxts-value.</item>
+      <item>          transfer_tab1-line+260 = wa_input-text5.  &quot;varfldtxts-fldtxt_new.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN OTHERS.</item>
+      <item>      ENDCASE.</item>
+      <item>    ENDLOOP.</item>
+      <item>    REFRESH gt_excel_string.</item>
+      <item>  ENDDO.</item>
+      <item>**** PIDSHEL</item>
+      <item>  ENDIF.</item>
+      <item>**** PIDSHEL</item>
+      <item>******************************************************</item>
+      <item/>
+      <item>IF sy-uname = &apos;LPIDSHETTI00&apos; OR l_horizontal IS NOT INITIAL.</item>
+      <item>*  if sy-uname = &apos;MEAPEN001&apos;.</item>
+      <item> DO l_sheetsnum TIMES.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_application &apos;Worksheets&apos; = gv_activesheet</item>
+      <item>      EXPORTING #1 = sy-index.</item>
+      <item/>
+      <item>    CALL METHOD OF gv_activesheet &apos;ACTIVATE&apos;.</item>
+      <item/>
+      <item>*   Refering the active worksheet of the application</item>
+      <item>    GET PROPERTY OF gv_application &apos;ActiveSheet&apos; = gv_activesheet.</item>
+      <item/>
+      <item>*   First cell is made as the starting cell</item>
+      <item>    CALL METHOD OF gv_application &apos;Cells&apos; = gv_start_cell</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = 1</item>
+      <item>      #2 = 1.</item>
+      <item/>
+      <item>    GET PROPERTY OF gv_application &apos;ActiveCell&apos; = gv_end_cell.</item>
+      <item/>
+      <item>*   Getting the last cell that is filled with data ( CTRL + END )</item>
+      <item>    CALL METHOD OF gv_end_cell &apos;SpecialCells&apos; = gv_end</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = &apos;11&apos;. &quot; Value for constant &apos;xlLastCell&apos;</item>
+      <item/>
+      <item>*   Value for constant xlLastCell is founc out using MS Excel object</item>
+      <item>*  … navigator in VBA editor -&gt; Step 12 of process mentioned above</item>
+      <item>*   Creating range with starting cell and ending cell</item>
+      <item>    CALL METHOD OF gv_application &apos;Range&apos; = gv_range</item>
+      <item>      EXPORTING</item>
+      <item>      #1 = gv_start_cell</item>
+      <item>      #2 = gv_end.</item>
+      <item/>
+      <item>*   Selecting the Range</item>
+      <item>    CALL METHOD OF gv_range &apos;Select&apos;.</item>
+      <item/>
+      <item>*   Copying the range</item>
+      <item>    CALL METHOD OF gv_range &apos;Copy&apos;.</item>
+      <item/>
+      <item>*   Read clipboard intoABAP</item>
+      <item>    CALL METHOD cl_gui_frontend_services=&gt;clipboard_import</item>
+      <item>      IMPORTING</item>
+      <item>        data = gt_excel_string</item>
+      <item>      EXCEPTIONS</item>
+      <item>        cntl_error = 1</item>
+      <item>        error_no_gui = 2</item>
+      <item>        not_supported_by_gui = 3</item>
+      <item>        OTHERS = 4.</item>
+      <item>    IF sy-subrc NE 0.</item>
+      <item>      CALL FUNCTION &apos;FLUSH&apos;</item>
+      <item>        EXCEPTIONS</item>
+      <item>          cntl_system_error = 1</item>
+      <item>          cntl_error        = 2</item>
+      <item>          OTHERS            = 3.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CALL METHOD OF gv_workbook &apos;CLOSE&apos;.</item>
+      <item>      CALL  METHOD OF gv_workbook &apos;QUIT&apos;.</item>
+      <item>      CALL METHOD OF gv_application &apos;QUIT&apos;.</item>
+      <item/>
+      <item>*     Freeing the used variables</item>
+      <item/>
+      <item>      FREE OBJECT gv_activesheet .</item>
+      <item>      FREE OBJECT gv_workbook .</item>
+      <item>      FREE OBJECT gv_application .</item>
+      <item>      gv_application-handle = -1.</item>
+      <item>      MESSAGE &apos;Error while uploading data&apos; TYPE &apos;E&apos;.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    LOOP AT gt_excel_string INTO wa_excel.</item>
+      <item>     if sy-index = 1.</item>
+      <item>      CLEAR wa_input.</item>
+      <item>      SPLIT wa_excel AT deli INTO wa_input-text1</item>
+      <item>                                  wa_input-text2</item>
+      <item>                                  wa_input-text3</item>
+      <item>                                  wa_input-text4</item>
+      <item>                                  wa_input-text5</item>
+      <item>                                  wa_input-text6</item>
+      <item>                                  wa_input-text7</item>
+      <item>                                  wa_input-text8</item>
+      <item>                                  wa_input-text9</item>
+      <item>                                  wa_input-text10.</item>
+      <item/>
+      <item>      CASE wa_input-text1.</item>
+      <item>        WHEN &apos;SHEETCOUNT&apos;.</item>
+      <item>          &quot;Do Nothing</item>
+      <item>        WHEN &apos;VERSION&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;VERSION&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;DATE&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;DATE&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          transfer_tab1-line+70  = wa_input-text3.</item>
+      <item>          append transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;BCSET&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;BCSET&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2. &quot; l_profid.</item>
+      <item>          transfer_tab1-line+85  = wa_input-text3 .&quot;l_proftype.</item>
+      <item>          transfer_tab1-line+90  = wa_input-text4.&quot; l_category.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;ORGID&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;ORGID&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2. &quot; l_profid.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;COMPONENT&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;COMPONENT&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;MINRELEASE&apos;.</item>
+      <item>           transfer_tab1-line     = &apos;MINRELEASE&apos;.</item>
+      <item>           transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>           APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;MAXRELEASE&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;MAXRELEASE&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN &apos;BCSET_TEXT&apos;.</item>
+      <item>          transfer_tab1-line     = &apos;BCSET_TEXT&apos;.</item>
+      <item>          transfer_tab1-line+50  = wa_input-text2.</item>
+      <item>          APPEND transfer_tab1.</item>
+      <item/>
+      <item>        WHEN OTHERS.</item>
+      <item/>
+      <item>      ENDCASE.</item>
+      <item>     ENDIF.</item>
+      <item>    ENDLOOP.</item>
+      <item/>
+      <item>   IF sy-index &lt;&gt; &apos;1&apos;.</item>
+      <item/>
+      <item>    REFRESH :it_id[],it_table_name[],it_record_no[],it_field[],it_lang[],it_flag[],it_value[],it_desc[].</item>
+      <item>     REFRESH : it_record_no[],it_lang[],it_record_temp[].</item>
+      <item>      REFRESH it_record_temp[].</item>
+      <item/>
+      <item>    CLEAR wa_excel.</item>
+      <item>    DELETE gt_excel_string INDEX 1.</item>
+      <item>    LOOP AT gt_excel_string INTO wa_excel.</item>
+      <item>         lv_tabix = sy-tabix.</item>
+      <item/>
+      <item>    CASE lv_tabix.</item>
+      <item/>
+      <item>*** ID</item>
+      <item>      WHEN &apos;1&apos;.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_id,lv_text5.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_id-id = lv_text1.</item>
+      <item>             wa_id-seq = lv_tabix.</item>
+      <item>             wa_id-text = lv_text4.</item>
+      <item>             APPEND wa_id to it_id.</item>
+      <item>             CLEAR wa_id.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item>*** Description</item>
+      <item>        WHEN &apos;2&apos;.</item>
+      <item>        CLEAR : lv_text1,lv_text2.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_desc,lv_text5.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_desc-id = lv_text1.</item>
+      <item>             wa_desc-seq = lv_tabix.</item>
+      <item>             wa_desc-text = lv_text4.</item>
+      <item>             APPEND wa_desc to it_desc.</item>
+      <item>             CLEAR wa_desc.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item>*** Table Name</item>
+      <item>      WHEN &apos;3&apos;.</item>
+      <item/>
+      <item>        CLEAR : lv_text1,lv_text2.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_table_name,lv_text5.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_table_name-id = lv_text1.</item>
+      <item>             wa_table_name-seq = lv_tabix.</item>
+      <item>             wa_table_name-text = lv_text4.</item>
+      <item>             APPEND wa_table_name to it_table_name.</item>
+      <item>             CLEAR wa_table_name.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item>*** Field</item>
+      <item>        WHEN &apos;4&apos;.</item>
+      <item>        CLEAR : lv_text1,lv_text2.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_field,lv_text5.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_field-id = lv_text1.</item>
+      <item>             wa_field-seq = lv_tabix.</item>
+      <item>             wa_field-text = lv_text4.</item>
+      <item>             APPEND wa_field to it_field.</item>
+      <item>             CLEAR wa_field.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item/>
+      <item>*** Flag</item>
+      <item>        WHEN &apos;5&apos;.</item>
+      <item>        CLEAR : lv_text1,lv_text2.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_flag,lv_text5.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_flag-id = lv_text1.</item>
+      <item>             wa_flag-seq = lv_tabix.</item>
+      <item>             wa_flag-text = lv_text4.</item>
+      <item>             APPEND wa_flag to it_flag.</item>
+      <item>             CLEAR wa_flag.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item>*** Lang</item>
+      <item/>
+      <item>      WHEN &apos;6&apos;.</item>
+      <item>        CLEAR : lv_text1,lv_text2.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_flag,lv_text5.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_lang-id = lv_text1.</item>
+      <item>             wa_lang-seq = lv_tabix.</item>
+      <item>             wa_lang-text = lv_text4.</item>
+      <item>             APPEND wa_lang to it_lang.</item>
+      <item>             CLEAR wa_lang.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item/>
+      <item>*** Record Number and Language</item>
+      <item>      WHEN OTHERS.</item>
+      <item>        CLEAR : lv_text1,lv_text2.</item>
+      <item>        SPLIT wa_excel at deli INTO lv_text1 lv_text2.</item>
+      <item>        CLEAR : wa_value,lv_text5.</item>
+      <item>        IF wa_excel+0(5) = &apos;Value&apos;.</item>
+      <item>*** Record Number</item>
+      <item>           SPLIT lv_text1 at &apos;-&apos; INTO lv_text6 lv_text7.</item>
+      <item>           CONDENSE lv_text7.</item>
+      <item/>
+      <item>        lv_text5 = lv_text2.</item>
+      <item>        lv_tabix = &apos;1&apos;.</item>
+      <item>        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>             lv_text3 = lv_text5.</item>
+      <item>             CLEAR lv_text5.</item>
+      <item>             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>             wa_record_no-id = lv_text1.</item>
+      <item>             wa_record_no-seq = lv_tabix.</item>
+      <item>             wa_record_no-rec = lv_text7.</item>
+      <item>             wa_record_no-text = lv_text4.</item>
+      <item>             APPEND wa_record_no to it_record_no.</item>
+      <item>             CLEAR wa_record_no.</item>
+      <item>             lv_tabix = lv_tabix + 1.</item>
+      <item>        ENDWHILE.</item>
+      <item/>
+      <item/>
+      <item>*        ELSEIF wa_excel+0(4) = &apos;Lang&apos;.</item>
+      <item>*</item>
+      <item>**** Language</item>
+      <item>*         SPLIT lv_text1 at &apos;-&apos; INTO lv_text6 lv_text7.</item>
+      <item>*         CONDENSE lv_text7.</item>
+      <item>*</item>
+      <item>*        lv_text5 = lv_text2.</item>
+      <item>*        lv_tabix = &apos;1&apos;.</item>
+      <item>*        WHILE lv_text5 is NOT INITIAL.</item>
+      <item>*             lv_text3 = lv_text5.</item>
+      <item>*             CLEAR lv_text5.</item>
+      <item>*             SPLIT lv_text3 at deli INTO lv_text4 lv_text5.</item>
+      <item>*             wa_lang-id = lv_text1.</item>
+      <item>*             wa_lang-seq = lv_tabix.</item>
+      <item>*             wa_lang-rec = lv_text7.</item>
+      <item>*             wa_lang-text = lv_text4.</item>
+      <item>*             APPEND wa_lang to it_lang.</item>
+      <item>*             CLEAR wa_lang.</item>
+      <item>*             lv_tabix = lv_tabix + 1.</item>
+      <item>*        ENDWHILE.</item>
+      <item/>
+      <item/>
+      <item>*** Language</item>
+      <item>        ENDIF.</item>
+      <item/>
+      <item>    ENDCASE.</item>
+      <item>*   ENDIF.</item>
+      <item>    ENDLOOP.</item>
+      <item>*** Move data to Transfer_tab structure.</item>
+      <item/>
+      <item>    DATA : lv_lines TYPE n.</item>
+      <item>    DATA : lv_count TYPE n.</item>
+      <item/>
+      <item>    it_record_temp[] = it_record_no[].</item>
+      <item>    DELETE ADJACENT DUPLICATES FROM it_record_temp COMPARING rec.</item>
+      <item>    DESCRIBE TABLE it_record_temp LINES lv_lines.</item>
+      <item/>
+      <item>    lv_count = &apos;1&apos;.</item>
+      <item/>
+      <item>    WHILE lv_count &lt;= lv_lines.</item>
+      <item/>
+      <item/>
+      <item>      CLEAR wa_id.</item>
+      <item>      LOOP AT it_id INTO wa_id.</item>
+      <item>         wa_final-id = wa_id-text.</item>
+      <item/>
+      <item>      CLEAR wa_table_name.</item>
+      <item>      READ TABLE it_table_name INTO wa_table_name WITH KEY seq = wa_id-seq.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>         wa_final-table_name = wa_table_name-text.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      wa_final-record_no = lv_count.</item>
+      <item/>
+      <item>      CLEAR wa_field.</item>
+      <item>      READ TABLE it_field INTO wa_field WITH KEY seq = wa_id-seq.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>         wa_final-field = wa_field-text.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CLEAR wa_lang.</item>
+      <item>      READ TABLE it_lang INTO wa_lang WITH KEY seq = wa_id-seq.</item>
+      <item>*                                                   rec = lv_count.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>         wa_final-lang = wa_lang-text.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CLEAR wa_flag.</item>
+      <item>      READ TABLE it_flag INTO wa_flag WITH KEY seq = wa_id-seq.</item>
+      <item>      IF  sy-subrc = 0.</item>
+      <item>          wa_final-flag = wa_flag-text.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CLEAR wa_record_no.</item>
+      <item>      READ TABLE it_record_no INTO wa_record_no WITH KEY seq = wa_id-seq</item>
+      <item>                                                         rec = lv_count.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>        wa_final-value = wa_record_no-text.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      CLEAR wa_desc.</item>
+      <item>      READ TABLE it_desc INTO wa_desc WITH KEY seq = wa_id-seq.</item>
+      <item>      IF sy-subrc = 0.</item>
+      <item>         wa_final-desc = wa_desc-text.</item>
+      <item>      ENDIF.</item>
+      <item/>
+      <item>      APPEND wa_final to it_final.</item>
+      <item>      CLEAR wa_final.</item>
+      <item/>
+      <item>      ENDLOOP.</item>
+      <item/>
+      <item>        lv_count = lv_count + 1.</item>
+      <item/>
+      <item>    ENDWHILE.</item>
+      <item/>
+      <item>    ENDIF.</item>
+      <item>    REFRESH gt_excel_string.</item>
+      <item/>
+      <item>    SORT it_final STABLE by record_no ASCENDING.</item>
+      <item/>
+      <item>    CLEAR wa_final.</item>
+      <item>    LOOP AT it_final INTO wa_final.</item>
+      <item>      wa_final_temp = wa_final.</item>
+      <item>      APPEND wa_final_temp to it_final_temp.</item>
+      <item>      CLEAR wa_final_temp.</item>
+      <item>      at END OF record_no.</item>
+      <item>        it_final_temp1[] = it_final_temp[].</item>
+      <item>        DELETE it_final_temp1 WHERE id &lt;&gt; &apos;SCPRVALL&apos;.</item>
+      <item>          CLEAR wa_final_temp1.</item>
+      <item>          LOOP AT it_final_temp1 INTO wa_final_temp1.</item>
+      <item>*** PIDSHEL 3/30/2019</item>
+      <item>          CLEAR l_rownum.</item>
+      <item>          WRITE wa_final_temp1-record_no RIGHT-JUSTIFIED TO l_rownum.</item>
+      <item>*** PIDSHEL 3/30/2019</item>
+      <item>             transfer_tab1-line = &apos;SCPRVALL&apos;.</item>
+      <item>             transfer_tab1-line+50  = wa_final_temp1-table_name. &quot;wa_upload1-tablename.</item>
+      <item>*             transfer_tab1-line+100 = wa_final_temp1-record_no.  &quot;wa_upload1-rownum.</item>
+      <item>             transfer_tab1-line+100 = l_rownum.  &quot;wa_upload1-rownum.</item>
+      <item>             transfer_tab1-line+110 = wa_final_temp1-field.      &quot;wa_upload1-field.</item>
+      <item>             transfer_tab1-line+160 = wa_final_temp1-lang.       &quot;wa_upload1-langu.</item>
+      <item>             transfer_tab1-line+170 = wa_final_temp1-flag.       &quot;wa_upload1-fieldtyp.</item>
+      <item>             transfer_tab1-line+180 = wa_final_temp1-value.      &quot; wa_upload1-value.</item>
+      <item>             APPEND transfer_tab1.</item>
+      <item>          ENDLOOP.</item>
+      <item/>
+      <item>          REFRESH it_final_temp1[].</item>
+      <item>          it_final_temp1[] = it_final_temp[].</item>
+      <item>          DELETE it_final_temp1 WHERE id &lt;&gt; &apos;SCPRVALS&apos;.</item>
+      <item/>
+      <item>          CLEAR wa_final_temp1.</item>
+      <item>          LOOP AT it_final_temp1 INTO wa_final_temp1.</item>
+      <item>          CLEAR l_rownum.</item>
+      <item>          WRITE wa_final_temp1-record_no RIGHT-JUSTIFIED TO l_rownum.</item>
+      <item>             transfer_tab1-line = &apos;SCPRVALS&apos;.</item>
+      <item>             transfer_tab1-line+50  = wa_final_temp1-table_name.  &quot;wa_upload1-tablename.</item>
+      <item>*             transfer_tab1-line+100 = wa_final_temp1-record_no.   &quot;wa_upload1-rownum.</item>
+      <item>              transfer_tab1-line+100 = l_rownum.   &quot;wa_upload1-rownum.</item>
+      <item>             transfer_tab1-line+110 = wa_final_temp1-field.       &quot;wa_upload1-field.</item>
+      <item>             transfer_tab1-line+170 = wa_final_temp1-flag.        &quot;wa_upload1-fieldtyp.</item>
+      <item>             transfer_tab1-line+180 = wa_final_temp1-value.       &quot; wa_upload1-value.</item>
+      <item>             APPEND transfer_tab1.</item>
+      <item>          ENDLOOP.</item>
+      <item/>
+      <item>          REFRESH it_final_temp1[].</item>
+      <item>          it_final_temp1[] = it_final_temp[].</item>
+      <item>          DELETE it_final_temp1 WHERE id &lt;&gt; &apos;SCPRRECA&apos;.</item>
+      <item>          CLEAR wa_final_temp1.</item>
+      <item>          LOOP AT it_final_temp1 INTO wa_final_temp1.</item>
+      <item>           CLEAR l_rownum.</item>
+      <item>           WRITE wa_final_temp1-record_no RIGHT-JUSTIFIED TO l_rownum.</item>
+      <item>            transfer_tab1-line = &apos;SCPRRECA&apos;.</item>
+      <item>            transfer_tab1-line+50  = wa_final_temp1-table_name.  &quot;wa_upload1-tablename.</item>
+      <item>*            transfer_tab1-line+100 = wa_final_temp1-record_no.   &quot;wa_upload1-rownum.</item>
+      <item>            transfer_tab1-line+100 = l_rownum.  &quot;wa_upload1-rownum.</item>
+      <item>            transfer_tab1-line+110 = wa_final_temp1-field.       &quot;wa_upload1-field.</item>
+      <item>            transfer_tab1-line+160 = wa_final_temp1-lang.        &quot;recattr-objecttype.</item>
+      <item>            transfer_tab1-line+170 = wa_final_temp1-flag.        &quot;recattr-activity.</item>
+      <item>            transfer_tab1-line+220 = wa_final_temp1-value.       &quot;recattr-clustname.</item>
+      <item>            transfer_tab1-line+260 = wa_final_temp1-desc.        &quot;recattr-uncomplete.</item>
+      <item>            APPEND transfer_tab1.</item>
+      <item>          ENDLOOP.</item>
+      <item/>
+      <item>          REFRESH it_final_temp1[].</item>
+      <item>          it_final_temp1[] = it_final_temp[].</item>
+      <item>          DELETE it_final_temp1 WHERE id &lt;&gt; &apos;SCPRFLDV&apos;.</item>
+      <item>          CLEAR wa_final_temp1.</item>
+      <item>          LOOP AT it_final_temp1 INTO wa_final_temp1.</item>
+      <item>           transfer_tab1-line = &apos;SCPRFLDV&apos;.</item>
+      <item>           transfer_tab1-line+50  = wa_final_temp1-table_name.  &quot;varfldtxts-dataelem.</item>
+      <item>           transfer_tab1-line+100 = wa_final_temp1-lang.  &quot;varfldtxts-langu.</item>
+      <item>           transfer_tab1-line+110 = wa_final_temp1-field.  &quot;varfldtxts-value.</item>
+      <item>           transfer_tab1-line+260 = wa_final_temp1-lang.   &quot;varfldtxts-fldtxt_new.</item>
+      <item>           APPEND transfer_tab1.</item>
+      <item>          ENDLOOP.</item>
+      <item/>
+      <item>        REFRESH: it_final_temp[],it_final_temp1[].</item>
+      <item>      ENDAT.</item>
+      <item/>
+      <item>    ENDLOOP.</item>
+      <item>    REFRESH it_final[].</item>
+      <item>  ENDDO.</item>
+      <item>  ENDIF.</item>
+      <item>******************************************************</item>
+      <item/>
+      <item>  CALL FUNCTION &apos;FLUSH&apos;</item>
+      <item>    EXCEPTIONS</item>
+      <item>      cntl_system_error = 1</item>
+      <item>      cntl_error        = 2</item>
+      <item>      OTHERS            = 3.</item>
+      <item>  IF sy-subrc = 0.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>  CALL METHOD OF gv_workbook &apos;CLOSE&apos;.</item>
+      <item>  CALL  METHOD OF gv_workbook &apos;QUIT&apos;.</item>
+      <item>  CALL METHOD OF gv_application &apos;QUIT&apos;.</item>
+      <item/>
+      <item>* Freeing the used variables</item>
+      <item/>
+      <item>  FREE OBJECT gv_activesheet .</item>
+      <item>  FREE OBJECT gv_workbook .</item>
+      <item>  FREE OBJECT gv_application .</item>
+      <item>  gv_application-handle = -1.</item>
+      <item/>
+      <item>**********************************************************************</item>
+      <item>* Daten von Datei lesen</item>
+      <item>IF transfer_tab1[] IS NOT INITIAL.</item>
+      <item/>
+      <item>*     Datenstrom analysieren, int. Tabellen für BC-Set(s) füllen und</item>
+      <item>*     BC-Set(s) sichern</item>
+      <item>      read table transfer_tab1 index 1.</item>
+      <item>      file_version1 = transfer_tab1+50(1).</item>
+      <item>      if file_version1 = &apos;1&apos;.</item>
+      <item>        perform read_transfer_tab_and_save</item>
+      <item>                tables   transfer_tab1</item>
+      <item>                         it_list_of_bcsets</item>
+      <item>                changing profid proftext category filename.</item>
+      <item>      else.</item>
+      <item>        message s398 with filename raising no_bcset_in_file.</item>
+      <item>      endif.</item>
+      <item>*</item>
+      <item>* Neues BC Set entsperren, da ungewiss, was mit dem BC Set passiert.</item>
+      <item>* -&gt; evtl. muss das BC Set also erneut gesperrt werden</item>
+      <item>    if not profid is initial.</item>
+      <item>      CALL FUNCTION &apos;SCPR_SV_DEQUEUE_BCSET&apos;</item>
+      <item>        EXPORTING</item>
+      <item>          bcset_id = profid.</item>
+      <item>    endif. &quot;profid</item>
+      <item/>
+      <item>    RETURN.</item>
+      <item/>
+      <item>    ENDIF. &quot; Transfter table not initial</item>
+      <item>    ENDIF.  &quot; Excel file</item>
+      <item>  endif.  &quot; File read success</item>
+      <item>*endif. &quot;User name check</item>
+      <item/>
+      <item> ENDIF.</item>
+     </SOURCE>
+    </ENH_HOOK_IMPL>
+   </ENHANCEMENTS>
+   <SOTR>
+    <item>
+     <HEADER>
+      <CONCEPT>000D3A00C7EE1ED7B8F6A9B2624BA0E6</CONCEPT>
+      <CREA_LAN>E</CREA_LAN>
+      <TRALA_TYPE>1</TRALA_TYPE>
+      <OBJID_VEC>AAI=</OBJID_VEC>
+     </HEADER>
+     <ENTRIES>
+      <SOTR_TEXT>
+       <CONCEPT>000D3A00C7EE1ED7B8F6A9B2624BA0E6</CONCEPT>
+       <LANGU>E</LANGU>
+       <LFD_NUM>0001</LFD_NUM>
+       <FLAG_CNTXT>X</FLAG_CNTXT>
+       <STATUS>R</STATUS>
+       <LENGTH>048</LENGTH>
+       <TEXT>Read the BCS file from the Excel</TEXT>
+      </SOTR_TEXT>
+     </ENTRIES>
+    </item>
+   </SOTR>
+   <SOTR_USE>
+    <SOTR_USE>
+     <PGMID>R3TR</PGMID>
+     <OBJECT>ENHO</OBJECT>
+     <OBJ_NAME>ZBCS_EXCEL_INPUT</OBJ_NAME>
+     <CONCEPT>000D3A00C7EE1ED7B8F6A9B2624BA0E6</CONCEPT>
+     <LFD_NUM>0001</LFD_NUM>
+    </SOTR_USE>
+   </SOTR_USE>
+  </asx:values>
+ </asx:abap>
+</abapGit>

@@ -1,0 +1,913 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_ENHO" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <TOOL>HOOK_IMPL</TOOL>
+   <SHORTTEXT>ZBCS_DESCRIPTION</SHORTTEXT>
+   <ORIGINAL_OBJECT>
+    <PGMID>R3TR</PGMID>
+    <ORG_OBJ_TYPE>FUGR</ORG_OBJ_TYPE>
+    <ORG_OBJ_NAME>SCPRPR</ORG_OBJ_NAME>
+    <ORG_MAIN_TYPE>FUGR</ORG_MAIN_TYPE>
+    <ORG_MAIN_NAME>SCPRPR</ORG_MAIN_NAME>
+    <PROGRAMNAME>SAPLSCPRPR</PROGRAMNAME>
+   </ORIGINAL_OBJECT>
+   <ENHANCEMENTS>
+    <ENH_HOOK_IMPL>
+     <PROGRAMNAME>SAPLSCPRPR</PROGRAMNAME>
+     <ENHMODE>D</ENHMODE>
+     <FULL_NAME>\PR:SAPLSCPRPR\FO:FILL_TRANSFER_TAB\SE:END\EI</FULL_NAME>
+     <SOURCE>
+      <item/>
+      <item>PERFORM download_file(ZCONFIG_MANAGEMENT_TOOL)</item>
+      <item>                                        IF FOUND TABLES values</item>
+      <item>                                                        valuesl</item>
+      <item>                                                        varfldtxts</item>
+      <item>                                                        recattr</item>
+      <item>                                                 USING  profid</item>
+      <item>                                                        proftext</item>
+      <item>                                                        category.</item>
+      <item>RETURN.</item>
+      <item/>
+      <item>  TYPES : BEGIN OF ty_dd03m,</item>
+      <item>            tabname(30),</item>
+      <item>            fieldname(30),</item>
+      <item>            rollname(30),</item>
+      <item>            inttype(30),</item>
+      <item>            intlen(30),</item>
+      <item>            decimals(30),</item>
+      <item>            ddtext(60),</item>
+      <item>          END OF ty_dd03m.</item>
+      <item/>
+      <item>  TYPES : BEGIN OF ty_output,</item>
+      <item>           sap_img(20),</item>
+      <item>           line(50),</item>
+      <item>           tablename(30),</item>
+      <item>           recnumber(10),</item>
+      <item>           fieldname(50),</item>
+      <item>           langu(10),</item>
+      <item>           flag(10),</item>
+      <item>           value(100),</item>
+      <item>           description(100),</item>
+      <item>          END OF ty_output.</item>
+      <item/>
+      <item>  TYPES : BEGIN OF ty_vname,</item>
+      <item>            act_id(20) TYPE c,</item>
+      <item>            text(75) TYPE c,</item>
+      <item>          END OF ty_vname.</item>
+      <item/>
+      <item>  DATA : path_and_filename TYPE string.</item>
+      <item/>
+      <item>*   Ole data Declarations</item>
+      <item>  DATA: h_excel       TYPE ole2_object, &quot; Excel object</item>
+      <item>        h_workbooks   TYPE ole2_object, &quot; list of workbooks</item>
+      <item>        h_workbook    TYPE ole2_object, &quot; workbook</item>
+      <item>        h_worksheet   TYPE ole2_object,</item>
+      <item>        h_column      TYPE ole2_object,</item>
+      <item>        h_range       TYPE ole2_object,</item>
+      <item>        h_cell_frm    TYPE ole2_object,</item>
+      <item>        h_cell_to     TYPE ole2_object.</item>
+      <item/>
+      <item>  TYPES : BEGIN OF ty_out_txt,</item>
+      <item>            line(1500) TYPE c,</item>
+      <item>          END OF ty_out_txt.</item>
+      <item/>
+      <item>  DATA :  wa_out_txt TYPE ty_out_txt,</item>
+      <item>          it_out_txt TYPE STANDARD TABLE OF ty_out_txt.</item>
+      <item>*** PIDSHEL</item>
+      <item>  DATA :  it_excel_string TYPE STANDARD TABLE OF ty_out_txt,</item>
+      <item>          wa_excel_string TYPE ty_out_txt.</item>
+      <item>*** PIDSHEL</item>
+      <item/>
+      <item>  DATA : it_scprreca TYPE STANDARD TABLE OF scprreca,</item>
+      <item>         it_out      TYPE STANDARD TABLE OF ty_output,</item>
+      <item>         it_out1     TYPE STANDARD TABLE OF ty_out_txt,</item>
+      <item>         it_dd03m    TYPE STANDARD TABLE OF ty_dd03m,</item>
+      <item>         it_imgact   TYPE STANDARD TABLE OF cus_imgach,</item>
+      <item>         it_text_img TYPE STANDARD TABLE OF CUS_IMGACT,</item>
+      <item>         it_vname    TYPE STANDARD TABLE OF ty_vname,</item>
+      <item>         wa_vname    TYPE ty_vname,</item>
+      <item>         wa_out      TYPE ty_output,</item>
+      <item>         wa_out1     TYPE ty_out_txt,</item>
+      <item>         wa_text     TYPE cus_imgact,</item>
+      <item>         wa_dd03m    TYPE ty_dd03m,</item>
+      <item>         wa_imgact   TYPE cus_imgach,</item>
+      <item>         wa_scprreca TYPE scprreca,</item>
+      <item>         v_rc        TYPE i,</item>
+      <item>         v_lines     TYPE i,</item>
+      <item>         v_sheet_num TYPE sy-index VALUE 0,</item>
+      <item>         v_delimeter TYPE c,</item>
+      <item>         v_sheet_name(30) TYPE c,</item>
+      <item>         v_sheet_count(3) TYPE n,</item>
+      <item>         v_first_line     TYPE c.</item>
+      <item/>
+      <item>*** PIDSHEL</item>
+      <item/>
+      <item>     TYPES : BEGIN OF ty_input,</item>
+      <item>             id TYPE string,</item>
+      <item>             table_name TYPE string,</item>
+      <item>             record_no TYPE string,</item>
+      <item>             field TYPE string,</item>
+      <item>             laug TYPE string,</item>
+      <item>             flag TYPE string,</item>
+      <item>             value TYPE string,</item>
+      <item>             desc TYPE string,</item>
+      <item>             text9 TYPE string,</item>
+      <item>             text10 TYPE string,</item>
+      <item>           END OF ty_input.</item>
+      <item/>
+      <item>      TYPES : BEGIN OF ty_input1,</item>
+      <item>             record_no TYPE n,</item>
+      <item>             id TYPE string,</item>
+      <item>             table_name TYPE string,</item>
+      <item>             field TYPE string,</item>
+      <item>             laug TYPE string,</item>
+      <item>             flag TYPE string,</item>
+      <item>             value TYPE string,</item>
+      <item>             desc TYPE string,</item>
+      <item>             text9 TYPE string,</item>
+      <item>             text10 TYPE string,</item>
+      <item>           END OF ty_input1.</item>
+      <item/>
+      <item/>
+      <item>     DATA : wa_input TYPE ty_input,</item>
+      <item>           wa_input1 TYPE ty_input1,</item>
+      <item>           wa_input2 TYPE ty_input1,</item>
+      <item>           wa_input3 TYPE ty_input1,</item>
+      <item>           it_input TYPE STANDARD TABLE OF ty_input,</item>
+      <item>           it_input1 TYPE STANDARD TABLE OF ty_input,</item>
+      <item>           it_input2 TYPE STANDARD TABLE OF ty_input1,</item>
+      <item>           it_input3 TYPE STANDARD TABLE OF ty_input1.</item>
+      <item/>
+      <item>     DATA : v_col LIKE sy-tabix,</item>
+      <item>            v_row LIKE sy-tabix,</item>
+      <item>            v_col_no TYPE i,</item>
+      <item>            h_cell TYPE ole2_object.</item>
+      <item/>
+      <item>*** PIDSHEL</item>
+      <item>  v_delimeter = cl_abap_char_utilities=&gt;horizontal_tab.</item>
+      <item/>
+      <item>  IF values[] IS NOT INITIAL.</item>
+      <item/>
+      <item>    SELECT tabname fieldname rollname inttype intlen decimals ddtext FROM dd03m</item>
+      <item>      INTO TABLE it_dd03m</item>
+      <item>      FOR ALL ENTRIES IN values</item>
+      <item>      WHERE tabname = values-tablename</item>
+      <item>      AND fieldname = values-FIELDNAME</item>
+      <item>      AND ddlanguage = &apos;E&apos;.</item>
+      <item/>
+      <item>    SELECT * FROM SCPRRECA INTO TABLE it_scprreca</item>
+      <item>      FOR ALL ENTRIES IN values</item>
+      <item>        WHERE id = values-id AND</item>
+      <item>         version = values-version.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>      SORT it_scprreca BY activity.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>* Get the description for the fields</item>
+      <item>  LOOP AT values.</item>
+      <item>    wa_out-line       = &apos;SCPRVALS&apos;.</item>
+      <item>    wa_out-TABLENAME  = values-tablename.</item>
+      <item>    wa_out-RECNUMBER = values-recnumber.</item>
+      <item>    wa_out-FIELDNAME = values-fieldname.</item>
+      <item>    wa_out-FLAG      = values-flag.</item>
+      <item>    wa_out-VALUE     = values-value.</item>
+      <item/>
+      <item>    CLEAR: wa_dd03m, wa_scprreca.</item>
+      <item>    READ TABLE it_dd03m INTO wa_dd03m WITH KEY tabname = values-tablename</item>
+      <item>                                               fieldname = values-fieldname.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>      wa_out-description = wa_dd03m-ddtext.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    READ TABLE it_scprreca INTO wa_scprreca WITH KEY tablename = values-tablename. &quot;objectname = values-tablename.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>      wa_out-sap_img = wa_scprreca-activity.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    APPEND wa_out TO it_out.</item>
+      <item>    CLEAR wa_out.</item>
+      <item>  ENDLOOP.</item>
+      <item/>
+      <item>* Get the customizing activity</item>
+      <item>  IF valuesl IS NOT INITIAL.</item>
+      <item>    SELECT * FROM SCPRRECA APPENDING TABLE it_scprreca</item>
+      <item>       FOR ALL ENTRIES IN valuesl</item>
+      <item>         WHERE id = valuesl-id AND</item>
+      <item>          version = valuesl-version.</item>
+      <item>     IF sy-subrc = 0.</item>
+      <item>       SORT it_scprreca BY activity.</item>
+      <item>     ENDIF.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>* Read the IMG activity to segregate to different nodes</item>
+      <item>  LOOP AT valuesl.</item>
+      <item>    wa_out-line       = &apos;SCPRVALL&apos;.</item>
+      <item>    wa_out-tablename  = valuesl-tablename.</item>
+      <item>    wa_out-recnumber  = valuesl-recnumber.</item>
+      <item>    wa_out-fieldname  = valuesl-fieldname.</item>
+      <item>    wa_out-langu      = valuesl-langu.</item>
+      <item>    wa_out-flag       = valuesl-flag.</item>
+      <item>    wa_out-value      = valuesl-value.</item>
+      <item/>
+      <item>    CLEAR : wa_scprreca.</item>
+      <item>    READ TABLE it_scprreca INTO wa_scprreca WITH KEY tablename = valuesl-tablename.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>      wa_out-sap_img = wa_scprreca-activity.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    APPEND wa_out TO it_out.</item>
+      <item>    CLEAR wa_out.</item>
+      <item>  ENDLOOP.</item>
+      <item/>
+      <item>  SORT it_out BY sap_img.</item>
+      <item/>
+      <item>* Get the customizing Object details</item>
+      <item>  SELECT * FROM cus_imgach INTO TABLE it_imgact</item>
+      <item>    FOR ALL ENTRIES IN it_out</item>
+      <item>    WHERE activity = it_out-sap_img.</item>
+      <item/>
+      <item>  SELECT * FROM cus_imgact INTO TABLE it_text_img</item>
+      <item>    FOR ALL ENTRIES IN it_out</item>
+      <item>    WHERE spras = &apos;E&apos; AND</item>
+      <item>          activity = it_out-sap_img.</item>
+      <item/>
+      <item>  CLEAR: v_lines, v_sheet_count.</item>
+      <item>  DESCRIBE TABLE it_imgact LINES v_lines.</item>
+      <item>  v_sheet_count = v_lines + 1.</item>
+      <item/>
+      <item>  CONCATENATE &apos;SHEETCOUNT&apos; v_sheet_count INTO</item>
+      <item>     wa_out_txt-line SEPARATED BY v_delimeter.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;VERSION&apos; &apos;1&apos;</item>
+      <item>    INTO wa_out_txt-line SEPARATED BY v_delimeter.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;DATE&apos; sy-datum sy-uzeit</item>
+      <item>    INTO wa_out_txt-line SEPARATED BY v_delimeter.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;BCSET&apos;</item>
+      <item>               profid</item>
+      <item>               proftype</item>
+      <item>               category</item>
+      <item>               INTO wa_out_txt-line SEPARATED BY V_DELIMETER.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;ORGID&apos;</item>
+      <item>               orgid</item>
+      <item>               INTO wa_out_txt-line SEPARATED BY V_DELIMETER.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;COMPONENT&apos;</item>
+      <item>               component</item>
+      <item>               INTO wa_out_txt-line SEPARATED BY V_DELIMETER.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;MINRELEASE&apos;</item>
+      <item>               minrelease</item>
+      <item>               INTO wa_out_txt-line SEPARATED BY V_DELIMETER.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;MAXRELEASE&apos;</item>
+      <item>               maxrelease</item>
+      <item>               INTO wa_out_txt-line SEPARATED BY V_DELIMETER.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item>  CONCATENATE &apos;BCSET_TEXT&apos;</item>
+      <item>               proftext</item>
+      <item>               INTO wa_out_txt-line SEPARATED BY V_DELIMETER.</item>
+      <item>  APPEND wa_out_txt TO it_out_txt.</item>
+      <item/>
+      <item/>
+      <item>  LOOP AT texts.</item>
+      <item>    CONCATENATE &apos;SCPRTEXT&apos;</item>
+      <item>                 texts-langu</item>
+      <item>                 texts-text</item>
+      <item>                 INTO wa_out_txt-line SEPARATED BY v_delimeter.</item>
+      <item>    APPEND wa_out_txt TO it_out_txt.</item>
+      <item>  ENDLOOP.</item>
+      <item/>
+      <item>* Excel Application</item>
+      <item>  CREATE OBJECT h_excel &apos;EXCEL.APPLICATION&apos;.</item>
+      <item>  SET PROPERTY OF h_excel &apos;Visible&apos;  = 0.</item>
+      <item>* Get list of workbooks, initially empty</item>
+      <item>  CALL METHOD OF h_excel &apos;Workbooks&apos; = h_workbooks.</item>
+      <item>* Set the number of sheets in excel to the different nodes</item>
+      <item>  v_lines = v_lines + 1.        &quot; Add one sheet for header data</item>
+      <item>  SET PROPERTY OF h_excel &apos;SheetsInNewWorkbook&apos; = v_lines. &quot;No of sheets</item>
+      <item>* Add the workbook</item>
+      <item>  CALL METHOD OF h_workbooks &apos;Add&apos; = h_workbook.</item>
+      <item/>
+      <item>* The header data for the BC Set only in the first sheet</item>
+      <item>* For every new node add the data in a new sheet</item>
+      <item>    v_sheet_name = &apos;Header&apos;.</item>
+      <item>    v_sheet_num = v_sheet_num + 1.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;WORKSHEETS&apos; = h_worksheet</item>
+      <item>      EXPORTING</item>
+      <item>       #1 = v_sheet_num.</item>
+      <item/>
+      <item>    CALL METHOD OF h_worksheet &apos;ACTIVATE&apos;.</item>
+      <item>    SET PROPERTY OF h_worksheet &apos;Name&apos;  = v_sheet_name .</item>
+      <item>    IF sy-subrc &lt;&gt; 0.</item>
+      <item>      SET PROPERTY OF h_worksheet &apos;Name&apos;  = &apos;Error in name&apos; .</item>
+      <item>    ENDIF.</item>
+      <item>    CALL METHOD cl_gui_frontend_services=&gt;clipboard_export</item>
+      <item>      IMPORTING</item>
+      <item>        data                 = it_out_txt[]</item>
+      <item>      CHANGING</item>
+      <item>        rc                   = v_rc</item>
+      <item>      EXCEPTIONS</item>
+      <item>        cntl_error           = 1</item>
+      <item>        error_no_gui         = 2</item>
+      <item>        not_supported_by_gui = 3</item>
+      <item>        OTHERS               = 4.</item>
+      <item/>
+      <item>*  Get the number of rows in each sheet</item>
+      <item>    CLEAR v_lines.</item>
+      <item>    DESCRIBE TABLE it_out_txt LINES v_lines.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell_frm</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = 1</item>
+      <item>        #2 = 1.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell_to</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = v_lines</item>
+      <item>        #2 = 3.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Range&apos; = h_range</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = h_cell_frm</item>
+      <item>        #2 = h_cell_to.</item>
+      <item/>
+      <item>    CALL METHOD OF h_range &apos;Select&apos;.</item>
+      <item>    CALL METHOD OF h_worksheet &apos;Paste&apos;.</item>
+      <item>*End of header data in the  first sheet</item>
+      <item>    v_first_line = &apos;X&apos;.</item>
+      <item>*** PIDSHEL</item>
+      <item> DATA : l_hori TYPE c.</item>
+      <item>  IF sy-uname &lt;&gt; &apos;LPIDSHETTI00&apos; AND L_HORI IS INITIAL.</item>
+      <item>*    if sy-uname &lt;&gt; &apos;MEAPEN001&apos;.</item>
+      <item>*** PIDSHEL</item>
+      <item>  LOOP AT  it_out INTO wa_out .</item>
+      <item/>
+      <item>* Read the node description</item>
+      <item>    CLEAR: wa_text.</item>
+      <item>    READ TABLE it_text_img INTO wa_text WITH KEY activity = wa_out-sap_img.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>       REPLACE ALL OCCURRENCES OF &apos;/&apos; IN wa_text-text WITH SPACE.</item>
+      <item>       v_sheet_name = wa_text-text.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>* Add the Customizing activity description to the header</item>
+      <item>    IF v_first_line = &apos;X&apos;.</item>
+      <item>      REFRESH it_out1.</item>
+      <item/>
+      <item>      CLEAR wa_out1.</item>
+      <item>      CONCATENATE &apos;Node Description&apos; wa_text-text</item>
+      <item>        INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>      APPEND wa_out1 TO it_out1.</item>
+      <item/>
+      <item>* Add the header for the next sheet</item>
+      <item>      CONCATENATE &apos;ID&apos;</item>
+      <item>                  &apos;Table Name&apos;</item>
+      <item>                  &apos;Record Number&apos;</item>
+      <item>                  &apos;Field&apos;</item>
+      <item>                  &apos;Language&apos;</item>
+      <item>                  &apos;Flag&apos;</item>
+      <item>                  &apos;Value&apos;</item>
+      <item>                  &apos;Field Description&apos;</item>
+      <item>                  INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>      APPEND wa_out1 TO it_out1.</item>
+      <item>      CLEAR wa_out1.</item>
+      <item/>
+      <item>      CLEAR v_first_line.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item/>
+      <item>* Add the entry to the table</item>
+      <item>    CLEAR wa_out1.</item>
+      <item>    CONCATENATE wa_out-line</item>
+      <item>             wa_out-tablename</item>
+      <item>             wa_out-recnumber</item>
+      <item>             wa_out-fieldname</item>
+      <item>             wa_out-langu</item>
+      <item>             wa_out-flag</item>
+      <item>             wa_out-value</item>
+      <item>             wa_out-description INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>     APPEND wa_out1 TO it_out1.</item>
+      <item>     CLEAR wa_out1.</item>
+      <item/>
+      <item>   AT END OF sap_img.</item>
+      <item/>
+      <item>    CLEAR wa_vname.</item>
+      <item>    READ TABLE it_vname INTO wa_vname WITH KEY text = v_sheet_name.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>      v_sheet_name+28(2) =  v_sheet_num.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    CLEAR wa_vname.</item>
+      <item>    wa_vname-ACT_ID = wa_out-sap_img.</item>
+      <item>    wa_vname-TEXT = v_sheet_name.</item>
+      <item>    APPEND wa_vname TO it_vname.</item>
+      <item/>
+      <item>* For every node add the data in a new sheet</item>
+      <item>    v_sheet_num = v_sheet_num + 1.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;WORKSHEETS&apos; = h_worksheet</item>
+      <item>      EXPORTING</item>
+      <item>       #1 = v_sheet_num.</item>
+      <item/>
+      <item>    CALL METHOD OF h_worksheet &apos;ACTIVATE&apos;.</item>
+      <item>    SET PROPERTY OF h_worksheet &apos;Name&apos;  = v_sheet_name .</item>
+      <item>    IF sy-subrc &lt;&gt; 0.</item>
+      <item>      SET PROPERTY OF h_worksheet &apos;Name&apos;  = &apos;Error in name&apos; .</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    LOOP AT recattr WHERE activity = wa_out-sap_img.</item>
+      <item>      CONCATENATE &apos;SCPRRECA&apos;</item>
+      <item>                   recattr-tablename</item>
+      <item>                   recattr-recnumber</item>
+      <item>                   recattr-objectname</item>
+      <item>                   recattr-objecttype</item>
+      <item>                   recattr-activity</item>
+      <item>                   recattr-clustname</item>
+      <item>                   recattr-uncomplete</item>
+      <item>                   recattr-deleteflag</item>
+      <item>                   recattr-genref</item>
+      <item>                   INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>       APPEND wa_out1 TO it_out1.</item>
+      <item>     ENDLOOP.</item>
+      <item/>
+      <item>* Variable Feldtexte</item>
+      <item>    IF v_sheet_num = &apos;2&apos;.</item>
+      <item>      LOOP AT varfldtxts.</item>
+      <item>        CONCATENATE &apos;SCPRFLDV&apos;</item>
+      <item>                     varfldtxts-dataelem</item>
+      <item>                     varfldtxts-langu</item>
+      <item>                     varfldtxts-value</item>
+      <item>                     varfldtxts-fldtxt_new</item>
+      <item>                     INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>         APPEND wa_out1 TO it_out1.</item>
+      <item>      ENDLOOP.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    CALL METHOD cl_gui_frontend_services=&gt;clipboard_export</item>
+      <item>      IMPORTING</item>
+      <item>        data                 = it_out1[]</item>
+      <item>      CHANGING</item>
+      <item>        rc                   = v_rc</item>
+      <item>      EXCEPTIONS</item>
+      <item>        cntl_error           = 1</item>
+      <item>        error_no_gui         = 2</item>
+      <item>        not_supported_by_gui = 3</item>
+      <item>        OTHERS               = 4.</item>
+      <item/>
+      <item>*  Get the number of rows in each sheet</item>
+      <item>    CLEAR v_lines.</item>
+      <item>    DESCRIBE TABLE it_out1 LINES v_lines.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell_frm</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = 1</item>
+      <item>        #2 = 1.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell_to</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = v_lines</item>
+      <item>        #2 = 8.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Range&apos; = h_range</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = h_cell_frm</item>
+      <item>        #2 = h_cell_to.</item>
+      <item/>
+      <item>    SET PROPERTY OF h_range &apos;NumberFormat&apos; = &apos;@&apos; . &quot;To disply zeros</item>
+      <item/>
+      <item>    CALL METHOD OF h_range &apos;Select&apos;.</item>
+      <item>    CALL METHOD OF h_worksheet &apos;Paste&apos;.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Columns&apos; = h_column.</item>
+      <item>    CALL METHOD OF h_column &apos;Autofit&apos;.</item>
+      <item>    FREE OBJECT h_column.</item>
+      <item>* Set the variable for the next sheet</item>
+      <item>    v_first_line = &apos;X&apos;.</item>
+      <item/>
+      <item>  ENDAT.</item>
+      <item> ENDLOOP.</item>
+      <item/>
+      <item>****** PIDSHEL</item>
+      <item> ENDIF.</item>
+      <item>***** PIDSHEL</item>
+      <item/>
+      <item>************************************************************</item>
+      <item> IF sy-uname = &apos;LPIDSHETTI00&apos; or L_HORI IS NOT INITIAL.</item>
+      <item>*if sy-uname = &apos;MEAPEN001&apos;.</item>
+      <item> LOOP AT  it_out INTO wa_out .</item>
+      <item/>
+      <item>* Read the node description</item>
+      <item>    CLEAR: wa_text.</item>
+      <item>    READ TABLE it_text_img INTO wa_text WITH KEY activity = wa_out-sap_img.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>       REPLACE ALL OCCURRENCES OF &apos;/&apos; IN wa_text-text WITH SPACE.</item>
+      <item>       v_sheet_name = wa_text-text.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>* Add the Customizing activity description to the header</item>
+      <item>    IF v_first_line = &apos;X&apos;.</item>
+      <item>      REFRESH it_out1.</item>
+      <item/>
+      <item>      CLEAR wa_out1.</item>
+      <item>      CONCATENATE &apos;Node Description&apos; wa_text-text</item>
+      <item>        INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>      APPEND wa_out1 TO it_out1.</item>
+      <item/>
+      <item>* Add the header for the next sheet</item>
+      <item>*      CONCATENATE &apos;ID&apos;</item>
+      <item>*                  &apos;Table Name&apos;</item>
+      <item>*                  &apos;Record Number&apos;</item>
+      <item>*                  &apos;Field&apos;</item>
+      <item>*                  &apos;Language&apos;</item>
+      <item>*                  &apos;Flag&apos;</item>
+      <item>*                  &apos;Value&apos;</item>
+      <item>*                  &apos;Field Description&apos;</item>
+      <item>*                  INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>*      APPEND wa_out1 TO it_out1.</item>
+      <item>*      CLEAR wa_out1.</item>
+      <item/>
+      <item>      CLEAR v_first_line.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item/>
+      <item>* Add the entry to the table</item>
+      <item>    CLEAR wa_out1.</item>
+      <item>    CONCATENATE wa_out-line</item>
+      <item>             wa_out-tablename</item>
+      <item>             wa_out-recnumber</item>
+      <item>             wa_out-fieldname</item>
+      <item>             wa_out-langu</item>
+      <item>             wa_out-flag</item>
+      <item>             wa_out-value</item>
+      <item>             wa_out-description INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>     APPEND wa_out1 TO it_out1.</item>
+      <item>     CLEAR wa_out1.</item>
+      <item/>
+      <item>   AT END OF sap_img.</item>
+      <item/>
+      <item>    CLEAR wa_vname.</item>
+      <item>    READ TABLE it_vname INTO wa_vname WITH KEY text = v_sheet_name.</item>
+      <item>    IF sy-subrc = 0.</item>
+      <item>      v_sheet_name+28(2) =  v_sheet_num.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    CLEAR wa_vname.</item>
+      <item>    wa_vname-ACT_ID = wa_out-sap_img.</item>
+      <item>    wa_vname-TEXT = v_sheet_name.</item>
+      <item>    APPEND wa_vname TO it_vname.</item>
+      <item/>
+      <item>* For every node add the data in a new sheet</item>
+      <item>    v_sheet_num = v_sheet_num + 1.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;WORKSHEETS&apos; = h_worksheet</item>
+      <item>      EXPORTING</item>
+      <item>       #1 = v_sheet_num.</item>
+      <item/>
+      <item>*** PIDSHEL</item>
+      <item>SET PROPERTY OF h_excel &apos;Visible&apos;  = 0.</item>
+      <item>*** PIDSHEL</item>
+      <item>    CALL METHOD OF h_worksheet &apos;ACTIVATE&apos;.</item>
+      <item>    SET PROPERTY OF h_worksheet &apos;Name&apos;  = v_sheet_name .</item>
+      <item>    IF sy-subrc &lt;&gt; 0.</item>
+      <item>      SET PROPERTY OF h_worksheet &apos;Name&apos;  = &apos;Error in name&apos; .</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item>    LOOP AT recattr WHERE activity = wa_out-sap_img.</item>
+      <item>      CONCATENATE &apos;SCPRRECA&apos;</item>
+      <item>                   recattr-tablename</item>
+      <item>                   recattr-recnumber</item>
+      <item>                   recattr-objectname</item>
+      <item>                   recattr-objecttype</item>
+      <item>                   recattr-activity</item>
+      <item>                   recattr-clustname</item>
+      <item>                   recattr-uncomplete</item>
+      <item>                   recattr-deleteflag</item>
+      <item>                   recattr-genref</item>
+      <item>                   INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>       APPEND wa_out1 TO it_out1.</item>
+      <item>     ENDLOOP.</item>
+      <item/>
+      <item>* Variable Feldtexte</item>
+      <item>    IF v_sheet_num = &apos;2&apos;.</item>
+      <item>      LOOP AT varfldtxts.</item>
+      <item>        CONCATENATE &apos;SCPRFLDV&apos;</item>
+      <item>                     varfldtxts-dataelem</item>
+      <item>                     varfldtxts-langu</item>
+      <item>                     varfldtxts-value</item>
+      <item>                     varfldtxts-fldtxt_new</item>
+      <item>                     INTO wa_out1 SEPARATED BY v_delimeter.</item>
+      <item>         APPEND wa_out1 TO it_out1.</item>
+      <item>      ENDLOOP.</item>
+      <item>    ENDIF.</item>
+      <item/>
+      <item/>
+      <item>REFRESH it_input[].</item>
+      <item>DELETE it_out1 INDEX 1.</item>
+      <item>LOOP AT it_out1 INTO wa_excel_string.</item>
+      <item>      CLEAR wa_input.</item>
+      <item>      SPLIT wa_excel_string AT v_delimeter INTO wa_input-id</item>
+      <item>                                  wa_input-table_name</item>
+      <item>                                  wa_input-record_no</item>
+      <item>                                  wa_input-field</item>
+      <item>                                  wa_input-laug</item>
+      <item>                                  wa_input-flag</item>
+      <item>                                  wa_input-value</item>
+      <item>                                  wa_input-desc</item>
+      <item>                                  wa_input-text9</item>
+      <item>                                  wa_input-text10.</item>
+      <item>      CONDENSE wa_input-record_no.</item>
+      <item>      APPEND wa_input to it_input.</item>
+      <item>      CLEAR wa_input.</item>
+      <item>ENDLOOP.</item>
+      <item/>
+      <item>DELETE it_input WHERE id = &apos;SCPRVALL&apos; AND laug &lt;&gt; &apos;E&apos;.</item>
+      <item/>
+      <item>REFRESH: it_input1[],it_input2[].</item>
+      <item/>
+      <item>MOVE-CORRESPONDING it_input[] to it_input1[].</item>
+      <item>MOVE-CORRESPONDING it_input[] to it_input2[].</item>
+      <item/>
+      <item>     v_col = &apos;1&apos;.</item>
+      <item/>
+      <item>     CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 1</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;Node Description&apos;.</item>
+      <item/>
+      <item>     v_col = v_col + 1.</item>
+      <item>     CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 1</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = wa_text-text.</item>
+      <item/>
+      <item/>
+      <item>    v_col = &apos;1&apos;.</item>
+      <item/>
+      <item>     CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 2</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;ID&apos;.</item>
+      <item/>
+      <item>     CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 3</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;Field Description&apos;.</item>
+      <item/>
+      <item>         CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 4</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;Table Name&apos;.</item>
+      <item/>
+      <item/>
+      <item>         CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 5</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;Field&apos;.</item>
+      <item/>
+      <item/>
+      <item>         CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 6</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;Flag&apos;.</item>
+      <item/>
+      <item>***** LPIDSHETTI</item>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>     EXPORTING #1 = 7</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>    set PROPERTY OF h_cell &apos;Value&apos; = &apos;Lang&apos;.</item>
+      <item>***** LPIDSHETTI</item>
+      <item/>
+      <item>    LOOP AT it_input1 INTO wa_input.</item>
+      <item/>
+      <item>     v_col = sy-tabix.</item>
+      <item>     v_col = v_col + 1.</item>
+      <item/>
+      <item>       CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = 2</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = wa_input-id.</item>
+      <item/>
+      <item>        CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = 3</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = wa_input-desc.</item>
+      <item/>
+      <item>       CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = 4</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = wa_input-table_name.</item>
+      <item/>
+      <item/>
+      <item>               CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = 5</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = wa_input-field.</item>
+      <item/>
+      <item/>
+      <item>               CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = 6</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = wa_input-flag.</item>
+      <item/>
+      <item>**** LPIDSHETTI</item>
+      <item>       CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = 7</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = wa_input-laug.</item>
+      <item>**** LPIDSHETTI</item>
+      <item/>
+      <item>   ENDLOOP.</item>
+      <item/>
+      <item>   v_row = &apos;8&apos;.</item>
+      <item/>
+      <item>   DATA : value TYPE string,</item>
+      <item>          lang TYPE string.</item>
+      <item/>
+      <item>   CLEAR wa_input2.</item>
+      <item>   LOOP AT it_input2 INTO wa_input2.</item>
+      <item>     wa_input1 = wa_input2.</item>
+      <item>     APPEND wa_input1 to it_input3.</item>
+      <item>     AT END OF record_no.</item>
+      <item>       CLEAR wa_input3.</item>
+      <item>       READ TABLE it_input3 INTO wa_input3 INDEX 1.</item>
+      <item>       IF sy-subrc = 0.</item>
+      <item>        CLEAR : value,lang.</item>
+      <item>        CONCATENATE &apos;Value - &apos; wa_input3-record_no INTO value SEPARATED BY space.</item>
+      <item>*        CONCATENATE &apos;Lang - &apos; wa_input3-record_no INTO lang SEPARATED BY space.</item>
+      <item>       ENDIF.</item>
+      <item>       CLEAR wa_input3.</item>
+      <item>        v_col = &apos;1&apos;.</item>
+      <item/>
+      <item>       CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>       EXPORTING #1 = v_row</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>       set PROPERTY OF h_cell &apos;Value&apos; = value.</item>
+      <item/>
+      <item>       CLEAR wa_input3.</item>
+      <item>       LOOP AT it_input3 INTO wa_input3.</item>
+      <item/>
+      <item>         v_col = v_col + 1.</item>
+      <item/>
+      <item>         CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>         EXPORTING #1 = v_row</item>
+      <item>               #2 = v_col.</item>
+      <item/>
+      <item>         SET PROPERTY OF h_cell &apos;NumberFormat&apos; = &apos;@&apos;. &quot;To display zeros</item>
+      <item/>
+      <item>         set PROPERTY OF h_cell &apos;Value&apos; = wa_input3-value.</item>
+      <item/>
+      <item>       ENDLOOP.</item>
+      <item/>
+      <item>*       v_row = v_row + 1.</item>
+      <item>*       v_col = &apos;1&apos;.</item>
+      <item>*       CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>*       EXPORTING #1 = v_row</item>
+      <item>*               #2 = v_col.</item>
+      <item>*</item>
+      <item>*       set PROPERTY OF h_cell &apos;Value&apos; = lang.</item>
+      <item>*</item>
+      <item>*       CLEAR wa_input3.</item>
+      <item>*       LOOP AT it_input3 INTO wa_input3.</item>
+      <item>*         v_col = v_col + 1.</item>
+      <item>*</item>
+      <item>*         CALL METHOD OF h_excel &apos;Cells&apos; = h_cell</item>
+      <item>*         EXPORTING #1 = v_row</item>
+      <item>*               #2 = v_col.</item>
+      <item>*</item>
+      <item>*         set PROPERTY OF h_cell &apos;Value&apos; = wa_input3-laug.</item>
+      <item>*</item>
+      <item>*       ENDLOOP.</item>
+      <item>        REFRESH it_input3[].</item>
+      <item>        v_row = v_row + 1.</item>
+      <item>     ENDAT.</item>
+      <item/>
+      <item>   ENDLOOP.</item>
+      <item/>
+      <item>    CLEAR v_lines.</item>
+      <item>    DESCRIBE TABLE it_out1 LINES v_lines.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell_frm</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = 1</item>
+      <item>        #2 = 1.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Cells&apos; = h_cell_to</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = v_lines</item>
+      <item>        #2 = 8.</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Range&apos; = h_range</item>
+      <item>      EXPORTING</item>
+      <item>        #1 = h_cell_frm</item>
+      <item>        #2 = h_cell_to.</item>
+      <item/>
+      <item>    SET PROPERTY OF h_range &apos;NumberFormat&apos; = &apos;@&apos; . &quot;To disply zeros</item>
+      <item/>
+      <item>    CALL METHOD OF h_excel &apos;Columns&apos; = h_column.</item>
+      <item>    CALL METHOD OF h_column &apos;Autofit&apos;.</item>
+      <item>    FREE OBJECT h_column.</item>
+      <item>* Set the variable for the next sheet</item>
+      <item>    v_first_line = &apos;X&apos;.</item>
+      <item/>
+      <item>  ENDAT.</item>
+      <item> ENDLOOP.</item>
+      <item> ENDIF.</item>
+      <item/>
+      <item/>
+      <item>***************************************************************</item>
+      <item/>
+      <item>  IMPORT path_and_filename FROM MEMORY ID &apos;ZBCS_FILENAME&apos;.</item>
+      <item>  IF path_and_filename IS NOT INITIAL.</item>
+      <item>    REPLACE &apos;.bcs&apos; IN path_and_filename WITH &apos; &apos;.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>  GET PROPERTY OF h_excel &apos;ActiveSheet&apos; = h_workbook.</item>
+      <item>  GET PROPERTY OF h_excel &apos;ActiveWorkbook&apos; = h_workbooks.</item>
+      <item/>
+      <item>  CALL FUNCTION &apos;FLUSH&apos;</item>
+      <item>    EXCEPTIONS</item>
+      <item>      cntl_system_error = 1</item>
+      <item>      cntl_error        = 2</item>
+      <item>      OTHERS            = 3.</item>
+      <item>  IF sy-subrc = 0.</item>
+      <item>    CALL METHOD OF h_workbook &apos;SAVEAS&apos;</item>
+      <item>      EXPORTING #1 = path_and_filename.</item>
+      <item>  ENDIF.</item>
+      <item/>
+      <item>  CALL METHOD OF h_workbooks &apos;CLOSE&apos;.</item>
+      <item>  CALL  METHOD OF h_workbooks &apos;QUIT&apos;.</item>
+      <item/>
+      <item>  CALL METHOD OF h_excel &apos;QUIT&apos;.</item>
+      <item/>
+      <item>  FREE OBJECT h_workbooks.</item>
+      <item>  FREE OBJECT h_workbook.</item>
+      <item>  FREE OBJECT h_excel.</item>
+      <item>  h_excel-handle = -1.</item>
+      <item/>
+      <item>*ENDIF.</item>
+     </SOURCE>
+    </ENH_HOOK_IMPL>
+   </ENHANCEMENTS>
+   <SOTR>
+    <item>
+     <HEADER>
+      <CONCEPT>000D3A00C7EE1ED7A7DE68CC2E3640E4</CONCEPT>
+      <CREA_LAN>E</CREA_LAN>
+      <TRALA_TYPE>1</TRALA_TYPE>
+      <OBJID_VEC>AAI=</OBJID_VEC>
+     </HEADER>
+     <ENTRIES>
+      <SOTR_TEXT>
+       <CONCEPT>000D3A00C7EE1ED7A7DE68CC2E3640E4</CONCEPT>
+       <LANGU>E</LANGU>
+       <LFD_NUM>0001</LFD_NUM>
+       <FLAG_CNTXT>X</FLAG_CNTXT>
+       <STATUS>R</STATUS>
+       <LENGTH>026</LENGTH>
+       <TEXT>ZBCS_DESCRIPTION</TEXT>
+      </SOTR_TEXT>
+     </ENTRIES>
+    </item>
+   </SOTR>
+   <SOTR_USE>
+    <SOTR_USE>
+     <PGMID>R3TR</PGMID>
+     <OBJECT>ENHO</OBJECT>
+     <OBJ_NAME>ZBCS_DESCRIPTION</OBJ_NAME>
+     <CONCEPT>000D3A00C7EE1ED7A7DE68CC2E3640E4</CONCEPT>
+     <LFD_NUM>0001</LFD_NUM>
+    </SOTR_USE>
+   </SOTR_USE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
